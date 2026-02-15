@@ -1,0 +1,108 @@
+-- Blue Death Sword + Godmode + Kill Aura (2026 working style)
+-- Suitable for Delta Executor
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid", 8)
+local rootPart = character:WaitForChild("HumanoidRootPart", 8)
+
+if not humanoid or not rootPart then
+    warn("Character issue! Wait for respawn or try again.")
+    return
+end
+
+-- Godmode (Anti-death)
+humanoid.MaxHealth = math.huge
+humanoid.Health = math.huge
+
+humanoid.HealthChanged:Connect(function(health)
+    if health < math.huge then
+        humanoid.Health = math.huge
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if humanoid.Health <= 0 or humanoid.Health < humanoid.MaxHealth then
+        humanoid.Health = math.huge
+    end
+end)
+
+-- Create blue sword
+local sword = Instance.new("Tool")
+sword.Name = "Blue Death Sword"
+sword.ToolTip = "Blue sword - one hit kill"
+sword.RequiresHandle = false
+sword.Parent = player.Backpack
+
+local handle = Instance.new("Part")
+handle.Name = "Handle"
+handle.Size = Vector3.new(1, 6.5, 1)
+handle.Color = Color3.fromRGB(0, 120, 255)
+handle.Material = Enum.Material.Neon
+handle.Transparency = 0.08
+handle.Parent = sword
+
+-- Trail effect
+local trail = Instance.new("Trail")
+trail.Color = ColorSequence.new(Color3.fromRGB(0, 220, 255), Color3.fromRGB(0, 60, 180))
+trail.Lifetime = 0.65
+trail.WidthScale = NumberSequence.new(1.2, 0)
+local att0 = Instance.new("Attachment", handle)
+att0.Position = Vector3.new(0, 3.2, 0)
+local att1 = Instance.new("Attachment", handle)
+att1.Position = Vector3.new(0, -3.2, 0)
+trail.Attachment0 = att0
+trail.Attachment1 = att1
+trail.Parent = handle
+
+-- Kill Aura
+local auraRadius = 18
+local damagePerTick = 45
+
+spawn(function()
+    while task.wait(0.08) do
+        if not character or not rootPart or humanoid.Health <= 0 then continue end
+        
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr == player then continue end
+            
+            local targetChar = plr.Character
+            if targetChar then
+                local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                local targetHum = targetChar:FindFirstChild("Humanoid")
+                
+                if targetRoot and targetHum and targetHum.Health > 0 then
+                    local distance = (rootPart.Position - targetRoot.Position).Magnitude
+                    
+                    if distance <= auraRadius then
+                        targetHum:TakeDamage(damagePerTick)
+                        
+                        local sound = Instance.new("Sound")
+                        sound.SoundId = "rbxassetid://6230938036"
+                        sound.Volume = 2.8
+                        sound.Parent = targetRoot
+                        sound:Play()
+                        Debris:AddItem(sound, 1.8)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Re-give sword after respawn
+player.CharacterAdded:Connect(function(newChar)
+    task.wait(0.6)
+    sword:Clone().Parent = player.Backpack
+    print("Sword returned after respawn!")
+end)
+
+-- Confirmation messages
+print("Blue Death Sword ACTIVATED!")
+print("Godmode ON | Kill Aura (" .. auraRadius .. " studs) | Damage: " .. damagePerTick)
+print("Blue sword in your backpack + trail effect")
+print("Change auraRadius or damagePerTick to make it stronger")
