@@ -1,0 +1,152 @@
+-- Monster Mode: Kill Aura + Fly + Godmode + Blue Sword (2026 Delta Executor)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid", 10)
+local root = character:WaitForChild("HumanoidRootPart", 10)
+
+if not humanoid or not root then warn("Character not ready!") return end
+
+-- Godmode
+humanoid.MaxHealth = math.huge
+humanoid.Health = math.huge
+humanoid.HealthChanged:Connect(function(h)
+    if h < math.huge then humanoid.Health = math.huge end
+end)
+RunService.Heartbeat:Connect(function()
+    if humanoid.Health < humanoid.MaxHealth then humanoid.Health = math.huge end
+end)
+
+-- Blue Sword (visual troll)
+local sword = Instance.new("Tool")
+sword.Name = "Monster Claw"
+sword.ToolTip = "Monster Claw - Instant Kill"
+sword.RequiresHandle = false
+sword.Parent = player.Backpack
+
+local handle = Instance.new("Part")
+handle.Name = "Handle"
+handle.Size = Vector3.new(1.5, 5, 1.5)
+handle.Color = Color3.fromRGB(0, 180, 255)
+handle.Material = Enum.Material.Neon
+handle.Transparency = 0.1
+handle.Parent = sword
+
+local trail = Instance.new("Trail")
+trail.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255), Color3.fromRGB(0, 100, 200))
+trail.Lifetime = 0.8
+trail.WidthScale = NumberSequence.new(1.5, 0)
+local a0 = Instance.new("Attachment", handle) a0.Position = Vector3.new(0, 2.5, 0)
+local a1 = Instance.new("Attachment", handle) a1.Position = Vector3.new(0, -2.5, 0)
+trail.Attachment0 = a0
+trail.Attachment1 = a1
+trail.Parent = handle
+
+player.CharacterAdded:Connect(function(nc)
+    task.wait(0.5)
+    sword:Clone().Parent = player.Backpack
+end)
+
+-- Kill Aura (direct health - most reliable method)
+local auraRadius = 22
+local damage = 120   -- زد لـ 250+ لو اللعبة regen سريع
+
+spawn(function()
+    while task.wait(0.05) do
+        if not root or humanoid.Health <= 0 then continue end
+        
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr == player or not plr.Character then continue end
+            
+            local tchar = plr.Character
+            local troot = tchar:FindFirstChild("HumanoidRootPart")
+            local thum = tchar:FindFirstChildWhichIsA("Humanoid")
+            
+            if troot and thum and thum.Health > 0 then
+                local dist = (root.Position - troot.Position).Magnitude
+                if dist <= auraRadius then
+                    thum.Health = math.max(0, thum.Health - damage)
+                    -- optional force death state
+                    if thum.Health <= 0 then thum:ChangeState(Enum.HumanoidStateType.Dead) end
+                    
+                    local snd = Instance.new("Sound", troot)
+                    snd.SoundId = "rbxassetid://6230938036"  -- sword hit sound
+                    snd.Volume = 3
+                    snd:Play()
+                    Debris:AddItem(snd, 2)
+                end
+            end
+        end
+    end
+end)
+
+-- Fly (simple & smooth)
+local flying = false
+local flySpeed = 80     -- زد لسرعة أكبر
+local bodyVelocity = nil
+local bodyGyro = nil
+
+local function startFly()
+    if flying then return end
+    flying = true
+    
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Velocity = Vector3.new(0,0,0)
+    bodyVelocity.Parent = root
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bodyGyro.CFrame = root.CFrame
+    bodyGyro.Parent = root
+    
+    humanoid.PlatformStand = true
+end
+
+local function stopFly()
+    flying = false
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    humanoid.PlatformStand = false
+end
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.F then  -- Press F to toggle fly
+        if flying then stopFly() else startFly() end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not flying or not root then return end
+    
+    local moveDir = Vector3.new(0,0,0)
+    local cam = workspace.CurrentCamera
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0,1,0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0,1,0) end
+    
+    if moveDir.Magnitude > 0 then
+        moveDir = moveDir.Unit * flySpeed
+    end
+    
+    bodyVelocity.Velocity = moveDir
+    bodyGyro.CFrame = cam.CFrame
+end)
+
+-- Start messages
+print("Monster Mode ACTIVATED!")
+print("→ Godmode ON")
+print("→ Kill Aura (" .. auraRadius .. " studs, " .. damage .. " dmg/tick)")
+print("→ Press F to toggle FLY (WASD + Space/Ctrl)")
+print("→ Blue Monster Claw in your backpack")
+print("استمتع بالفوضى يا وحش خطير 😈🔥")
